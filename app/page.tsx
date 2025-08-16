@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import AgentActionsSidebar from "@/components/agent-actions"
@@ -97,23 +96,154 @@ export default function CRMPipeline() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [deals] = useState<Deal[]>(mockDeals)
 
-  const handleAction = (action: string, deal: Deal) => {
-    console.log(`[v0] ${action} action triggered for deal:`, deal.dealTitle)
-    // In a real app, these would trigger actual actions
-    switch (action) {
-      case "email":
-        window.open(`mailto:${deal.email}?subject=Regarding ${deal.dealTitle}`)
-        break
-      case "call":
-        window.open(`tel:${deal.phone}`)
-        break
-      case "report":
-        console.log("[v0] Generating report for:", deal.company)
-        break
-      case "research":
-        console.log("[v0] Conducting research on:", deal.company)
-        break
+  // Action panel states
+  const [emailSubtype, setEmailSubtype] = useState<"schedule" | "followup" | "custom" | null>(null)
+  const [emailSubject, setEmailSubject] = useState<string>("")
+  const [emailBody, setEmailBody] = useState<string>("")
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+
+  const [callSubtype, setCallSubtype] = useState<"schedule" | "followup" | "custom" | null>(null)
+  const [callStatus, setCallStatus] = useState<"idle" | "in-progress" | "completed">("idle")
+  const [callTranscript, setCallTranscript] = useState<string | null>(null)
+
+  const [reportStatus, setReportStatus] = useState<"idle" | "in-progress" | "completed">("idle")
+  const [reportUrl, setReportUrl] = useState<string | null>(null)
+
+  // Notes used as context for actions
+  const [notes, setNotes] = useState<string>("")
+
+  // When switching deals, hide any open action panels in the workbench
+  useEffect(() => {
+    if (!selectedDeal) return
+    // clear any open action panels while preserving per-deal notes
+    setEmailSubtype(null)
+    setEmailSubject("")
+    setEmailBody("")
+    setIsSendingEmail(false)
+    setCallSubtype(null)
+    setCallStatus("idle")
+    setCallTranscript(null)
+    setReportStatus("idle")
+    setReportUrl(null)
+  }, [selectedDeal])
+
+  // Load notes for selected deal from localStorage
+  useEffect(() => {
+    if (!selectedDeal) return
+    try {
+      const stored = window.localStorage.getItem(`deal_notes_${selectedDeal.id}`)
+      setNotes(stored ?? "")
+    } catch (_) {}
+  }, [selectedDeal])
+
+  // Persist notes for selected deal
+  useEffect(() => {
+    if (!selectedDeal) return
+    try {
+      window.localStorage.setItem(`deal_notes_${selectedDeal.id}`, notes)
+    } catch (_) {}
+  }, [notes, selectedDeal])
+
+  const handleAction = async (
+    action: "email" | "call" | "report",
+    deal: Deal,
+    subtype?: "schedule" | "followup" | "custom"
+  ) => {
+    if (!deal) return
+    if (action === "email") {
+      // Clear other actions
+      setCallSubtype(null)
+      setCallStatus("idle")
+      setCallTranscript(null)
+      setReportStatus("idle")
+      setReportUrl(null)
+      setEmailSubtype(subtype ?? "custom")
+      setEmailSubject("")
+      setEmailBody("")
+      setIsSendingEmail(true)
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "draft",
+          subtype,
+          dealId: deal.id,
+          notes,
+          clientName: deal.clientName,
+          company: deal.company,
+          dealTitle: deal.dealTitle,
+          lastContact: deal.lastContact,
+        }),
+      })
+      const data = await res.json()
+      setEmailSubject(data.subject ?? "")
+      setEmailBody(data.body ?? "")
+      setIsSendingEmail(false)
     }
+    if (action === "call") {
+      // Clear other actions
+      setEmailSubtype(null)
+      setEmailSubject("")
+      setEmailBody("")
+      setReportStatus("idle")
+      setReportUrl(null)
+      setCallSubtype(subtype ?? "custom")
+      setCallStatus("in-progress")
+      setCallTranscript(null)
+      await fetch("/api/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "start", subtype, dealId: deal.id, notes }),
+      })
+    }
+    if (action === "report") {
+      // Clear other actions
+      setEmailSubtype(null)
+      setEmailSubject("")
+      setEmailBody("")
+      setCallSubtype(null)
+      setCallStatus("idle")
+      setCallTranscript(null)
+      setReportStatus("in-progress")
+      setReportUrl(null)
+      const res = await fetch("/api/report", { method: "POST" })
+      const data = await res.json()
+      setReportStatus("completed")
+      setReportUrl(data.url ?? null)
+    }
+  }
+
+  const sendEmail = async () => {
+    if (!selectedDeal || (!emailSubject && !emailBody)) return
+    setIsSendingEmail(true)
+    await fetch("/api/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "send",
+        subtype: emailSubtype,
+        dealId: selectedDeal.id,
+        subject: emailSubject,
+        body: emailBody,
+        notes,
+        clientName: selectedDeal.clientName,
+        company: selectedDeal.company,
+        dealTitle: selectedDeal.dealTitle,
+        lastContact: selectedDeal.lastContact,
+      }),
+    })
+    setIsSendingEmail(false)
+  }
+
+  const completeCall = async () => {
+    const res = await fetch("/api/call", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "complete" }),
+    })
+    const data = await res.json()
+    setCallStatus("completed")
+    setCallTranscript(data.transcript ?? "")
   }
 
   const formatCurrency = (amount: number) => {
@@ -283,7 +413,115 @@ export default function CRMPipeline() {
                 </div>
               </CardContent>
             </Card>
-            <AgentActionsSidebar selectedDeal={selectedDeal} onAction={(action, deal) => handleAction(action, deal)} />
+            <AgentActionsSidebar
+              selectedDeal={selectedDeal}
+              onAction={(action, deal, subtype) => handleAction(action, deal, subtype)}
+            />
+          </div>
+          <div className="px-6 pb-8 space-y-6">
+            {selectedDeal && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Agent Workbench</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Notes Section */}
+                  <div className="space-y-3">
+                    <div className="font-medium">Notes</div>
+                    <textarea
+                      className="w-full h-40 rounded-md border bg-background p-3 text-sm font-mono"
+                      placeholder="Add context for email and calls..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Tab") {
+                          e.preventDefault()
+                          const target = e.currentTarget
+                          const start = target.selectionStart ?? notes.length
+                          const end = target.selectionEnd ?? notes.length
+                          const updated = notes.slice(0, start) + "\t" + notes.slice(end)
+                          setNotes(updated)
+                          requestAnimationFrame(() => {
+                            try {
+                              target.selectionStart = target.selectionEnd = start + 1
+                            } catch (_) {}
+                          })
+                        }
+                      }}
+                    />
+                    <div className="text-xs text-muted-foreground">Auto-saved per deal</div>
+                  </div>
+
+                  {/* Email Section */}
+                  {emailSubtype && (
+                    <div className="space-y-3">
+                      <div className="font-medium">Email Draft ({emailSubtype})</div>
+                      {isSendingEmail && (
+                        <div className="text-sm text-muted-foreground">Generating email with AI...</div>
+                      )}
+                      <input
+                        className="w-full rounded-md border bg-background p-2 text-sm"
+                        placeholder="Subject"
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                      />
+                      <textarea
+                        className="w-full h-40 rounded-md border bg-background p-3 text-sm"
+                        placeholder="Email body"
+                        value={emailBody}
+                        onChange={(e) => setEmailBody(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button disabled={isSendingEmail} onClick={sendEmail}>
+                          {isSendingEmail ? "Sending..." : "Send Email"}
+                        </Button>
+                        <Button variant="secondary" onClick={() => { setEmailSubtype(null); setEmailSubject(""); setEmailBody("") }}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Call Section */}
+                  {callSubtype && (
+                    <div className="space-y-3">
+                      <div className="font-medium">Call ({callSubtype})</div>
+                      {callStatus === "in-progress" && (
+                        <div className="text-sm text-muted-foreground">Call in progress...</div>
+                      )}
+                      {callStatus === "completed" && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Call Transcript</div>
+                          <pre className="whitespace-pre-wrap text-sm bg-muted/50 p-3 rounded-md">{callTranscript}</pre>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {callStatus === "in-progress" ? (
+                          <Button onClick={completeCall}>Complete Call</Button>
+                        ) : (
+                          <Button variant="secondary" onClick={() => { setCallSubtype(null); setCallStatus("idle"); setCallTranscript(null) }}>Clear</Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Report Section */}
+                  {(reportStatus === "in-progress" || reportStatus === "completed") && (
+                    <div className="space-y-3">
+                      <div className="font-medium">Report</div>
+                      {reportStatus === "in-progress" && (
+                        <div className="text-sm text-muted-foreground">Report PDF in progress...</div>
+                      )}
+                      {reportStatus === "completed" && (
+                        <div className="text-sm">
+                          Report complete. {reportUrl ? <a className="underline" href={reportUrl}>Download</a> : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Notes are managed in the sidebar */}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </SidebarInset>

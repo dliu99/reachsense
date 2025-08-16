@@ -1,9 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Mail, Phone, FileText, Search, Building2, User, DollarSign, Calendar } from "lucide-react"
+import { Mail, Phone, FileText, Building2, User, DollarSign, Calendar } from "lucide-react"
 
 interface Deal {
   id: string
@@ -29,7 +30,11 @@ export function AgentActionsSidebar({
   onAction,
 }: {
   selectedDeal: Deal | null
-  onAction: (action: "email" | "call" | "report" | "research", deal: Deal) => void
+  onAction: (
+    action: "email" | "call" | "report",
+    deal: Deal,
+    subtype?: "schedule" | "followup" | "custom"
+  ) => void
 }) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -84,33 +89,37 @@ export function AgentActionsSidebar({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => onAction("email", selectedDeal)}
-                  className="justify-start"
-                >
-                  <Mail className="h-4 w-4 mr-2" /> Email
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => onAction("call", selectedDeal)}
-                  className="justify-start"
-                >
-                  <Phone className="h-4 w-4 mr-2" /> Call
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" className="justify-start">
+                      <Mail className="h-4 w-4 mr-2" /> Email
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => onAction("email", selectedDeal, "schedule")}>Schedule appointment</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAction("email", selectedDeal, "followup")}>Follow up</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAction("email", selectedDeal, "custom")}>Custom</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" className="justify-start">
+                      <Phone className="h-4 w-4 mr-2" /> Call
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => onAction("call", selectedDeal, "schedule")}>Schedule appointment</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAction("call", selectedDeal, "followup")}>Follow up</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAction("call", selectedDeal, "custom")}>Custom</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   variant="secondary"
                   onClick={() => onAction("report", selectedDeal)}
                   className="justify-start"
                 >
                   <FileText className="h-4 w-4 mr-2" /> Report
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => onAction("research", selectedDeal)}
-                  className="justify-start"
-                >
-                  <Search className="h-4 w-4 mr-2" /> Research
                 </Button>
               </div>
             </div>
