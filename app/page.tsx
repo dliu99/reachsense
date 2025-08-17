@@ -22,7 +22,6 @@ interface Deal {
   email: string
   phone: string
 }
-
 const mockDeals: Deal[] = [
   {
     id: "1",
@@ -30,7 +29,7 @@ const mockDeals: Deal[] = [
     dealTitle: "Enterprise Software License",
     clientName: "Sarah Johnson",
     status: "prospect",
-    lastContact: "2024-01-15",
+    lastContact: "2025-08-15",
     value: 50000,
     description: "Potential enterprise software licensing deal for 500+ employees",
     email: "sarah.johnson@techcorp.com",
@@ -42,7 +41,7 @@ const mockDeals: Deal[] = [
     dealTitle: "Consulting Services",
     clientName: "Michael Chen",
     status: "lead",
-    lastContact: "2024-01-12",
+    lastContact: "2025-08-14",
     value: 75000,
     description: "6-month consulting engagement for digital transformation",
     email: "m.chen@globalind.com",
@@ -54,7 +53,7 @@ const mockDeals: Deal[] = [
     dealTitle: "SaaS Subscription",
     clientName: "Emily Rodriguez",
     status: "client",
-    lastContact: "2024-01-10",
+    lastContact: "2025-08-13",
     value: 25000,
     description: "Annual SaaS subscription with premium support",
     email: "emily@startupxyz.com",
@@ -66,7 +65,7 @@ const mockDeals: Deal[] = [
     dealTitle: "Custom Development",
     clientName: "David Wilson",
     status: "lead",
-    lastContact: "2024-01-08",
+    lastContact: "2025-08-12",
     value: 120000,
     description: "Custom application development project",
     email: "d.wilson@megacorp.com",
@@ -78,7 +77,7 @@ const mockDeals: Deal[] = [
     dealTitle: "Website Redesign",
     clientName: "Lisa Thompson",
     status: "prospect",
-    lastContact: "2024-01-05",
+    lastContact: "2025-08-11",
     value: 15000,
     description: "Complete website redesign and SEO optimization",
     email: "lisa@localbiz.com",
@@ -270,7 +269,7 @@ export default function CRMPipeline() {
           <div className="border-b px-6 py-4 flex items-center gap-4">
             <SidebarTrigger />
             <div>
-              <h1 className="text-3xl font-bold text-foreground">CRM Pipeline</h1>
+              <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
               <p className="text-muted-foreground">Manage your deals and client relationships</p>
             </div>
           </div>
@@ -512,7 +511,7 @@ export default function CRMPipeline() {
                       )}
                       {reportStatus === "completed" && (
                         <div className="text-sm">
-                          Report complete. {reportUrl ? <a className="underline" href={reportUrl}>Download</a> : null}
+                          Report complete. {reportUrl ? <a className="underline" href={reportUrl} target="_blank" rel="noopener noreferrer">Download</a> : null}
                         </div>
                       )}
                     </div>

@@ -69,26 +69,32 @@ export async function POST(request: Request) {
           },
         ]
 
-        const response: any = await (ai as any).models.generateContent({ model, config, contents })
         let textOutput = ""
+        let response: any
+        try {
+          response = await (ai as any).models.generateContent({ model, config, contents })
+        } catch (err) {
+          return NextResponse.json({ error: "Gemini API call failed", details: err instanceof Error ? err.message : String(err) }, { status: 500 })
+        }
         if (response?.text) {
           textOutput = typeof response.text === "function" ? await response.text() : response.text
         } else if (response?.output_text) {
           textOutput = response.output_text
         }
-
-        if (textOutput) {
-          try {
-            const parsed = JSON.parse(textOutput)
-            const generatedSubject = subject ?? parsed.subject ?? subjectBase
-            const generatedBody = content ?? parsed.contents
-            return NextResponse.json({ subject: generatedSubject, body: generatedBody })
-          } catch (_) {
-            // fall through to template fallback below
-          }
+        if (!textOutput) {
+          return NextResponse.json({ error: "Gemini response missing text output", details: response }, { status: 500 })
         }
-      } catch (_) {
-        // ignore and fall back
+        let parsed
+        try {
+          parsed = JSON.parse(textOutput)
+        } catch (err) {
+          return NextResponse.json({ error: "Failed to parse Gemini response as JSON", details: textOutput }, { status: 500 })
+        }
+        const generatedSubject = subject ?? parsed.subject ?? subjectBase
+        const generatedBody = content ?? parsed.contents
+        return NextResponse.json({ subject: generatedSubject, body: generatedBody })
+      } catch (err) {
+        return NextResponse.json({ error: "Unexpected Gemini error", details: err instanceof Error ? err.message : String(err) }, { status: 500 })
       }
     }
 

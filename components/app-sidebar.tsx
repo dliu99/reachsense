@@ -51,7 +51,7 @@ export function AppSidebar({ deals, onDealSelect, selectedDeal }: AppSidebarProp
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
-        <h2 className="text-lg font-semibold">Deal Overview</h2>
+        <h2 className="text-lg font-semibold">ReachSense</h2>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
